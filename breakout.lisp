@@ -28,6 +28,9 @@
 (defparameter *level-number* 1)
 
 (defparameter *ball* nil)
+(defparameter *pause* 0)
+(defparameter *get-ready* 0)
+(defparameter *get-ready-count* 0)
 
 (defparameter *bricks-in-level* 0)
 
@@ -152,6 +155,7 @@
 (defun make-level ()
   (setf *level* (make-array (list *level-height* *level-width*))))
 
+
 ;;;; PARSE-LEVEL function
 
 (defun parse-level (lines)
@@ -204,6 +208,8 @@
 		  do (draw-tile tile x y)))))
 
 
+;;;; DISPLAY-BACKGROUND function
+
 (defun display-background ()
   (cond ((= *level-number* 1)
 	 (sdl:draw-surface-at-* (sdl:load-image *gfx-level-1*) 0 0))
@@ -211,7 +217,20 @@
 	 (sdl:draw-surface-at-* (sdl:load-image *gfx-level-2*) 0 0))))
 
 
+;;;; DISPLAY-GET-READY function
+
+(defun display-get-ready ()
+  (if (>= *get-ready-count* 120)
+      (progn (setf *get-ready* 0)
+	     (setf *pause* 0))
+      (setf *get-ready-count* (incf *get-ready-count*)))
+  
+  (draw-text "GET READY!" 180 300 255 255 255 *ttf-font-huge*))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;; BALL ;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;; CREATE-BALL function
 
 (defun create-ball ()
   (setf *ball* (make-instance 'ball
@@ -227,7 +246,6 @@
   (setf (y b) (- *game-height* 57))
   (setf (dy b) -2)
   (setf (dx b) (- (random 7) 3)))
-
 
 
 ;;;; DISPLAY-BALL function
@@ -272,7 +290,10 @@
 
   ; Fall Out
   (if (> (+ (y b) (h b)) (- *game-height* 30))
-      (reset-level)))
+      (progn (setf *player-lives* (decf *player-lives*))
+	     (if (zerop *player-lives*)
+		 (change-game-state)
+		 (reset-level)))))
 
 
 ;;;; COLLIDE-BRICK function
@@ -337,30 +358,38 @@
 	  
     (cond ((and (<= (x p) b-mid)
 		(>= (+ (x p) pw-div) b-mid)
-		(<= (y p) (+ (y b) (h b))))
+		(<= (y p) (+ (y b) (h b)))
+		(> (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
-		  (setf (dx b) -2)
+		  (if (sdl:get-key-state :sdl-key-left)
+		      (setf (dx b) -3)
+		      (setf (dx b) -2))
 		  (play-sound 1)))
 
 	  ((and (<= (+ (x p) pw-div) b-mid)
 		(>= (+ (x p) (* pw-div 2)) b-mid)
-		(<= (y p) (+ (y b) (h b))))
+		(<= (y p) (+ (y b) (h b)))
+		(> (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (setf (dx b) -1)
 		  (play-sound 1)))
 
 	  ((and (<= (+ (x p) (* pw-div 2)) b-mid)
 		(>= (+ (x p) (* pw-div 3)) b-mid)
-		(<= (y p) (+ (y b) (h b))))
+		(<= (y p) (+ (y b) (h b)))
+		(> (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (setf (dx b) 1)
 		  (play-sound 1)))
 	  
 	  ((and (<= (+ (x p) (* pw-div 3)) b-mid)
 		(>= (+ (x p) (w p)) b-mid)
-		(<= (y p) (+ (y b) (h b))))
+		(<= (y p) (+ (y b) (h b)))
+		(> (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
-		  (setf (dx b) 2)
+		  (if (sdl:get-key-state :sdl-key-right)
+		      (setf (dx b) 3)
+		      (setf (dx b) 2))
 		  (play-sound 1)))
 
 	  (t (progn (setf (dy b) (- (dy b)))
@@ -369,6 +398,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;; SCORING ;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;; UPDATE-SCORE function
 
 (defun update-score (brick)
   (setf *bricks-in-level* (decf *bricks-in-level*))
@@ -387,6 +417,7 @@
 
   (if (zerop *bricks-in-level*)
       (progn (setf *level-number* (incf *level-number*))
+	     (play-sound 3)
 	     (load-new-level))))
 
 
@@ -419,12 +450,18 @@
 
 (defun move-player (direction)
   (cond ((eq direction 'left)
-	 (setf (x *player*) (- (x *player*) (spd *player*))))
+	 (unless (<= (x *player*) 0)
+	   (setf (x *player*) (- (x *player*) (spd *player*)))))
+
 	((eq direction 'right)
-	 (setf (x *player*) (+ (x *player*) (spd *player*))))))
+	 (unless (>= (+ (x *player*) (w *player*)) *game-width*)
+	   (setf (x *player*) (+ (x *player*) (spd *player*)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;; SCREENS ;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;; DISPLAY-UI function
 
 (defun display-ui ()
   (draw-box 0 (- *game-height* 30) *game-width* *game-height* 0 0 0)
@@ -439,6 +476,8 @@
   (draw-text (format nil "Lives: ~a" *player-lives*) 
 	     375 (- *game-height* 25) 255 255 255 *ttf-font-normal*))
 
+
+;;;; DISPLAY-END-GAME function
 
 (defun display-end-game ()
   (draw-text "BREAKOUT" 180 20 255 255 0 *ttf-font-huge*)
@@ -490,9 +529,12 @@
   (cond ((= *game-state* 1)
 	 (display-background)
 	 (display-level)
-	 (update-ball *ball* *player*)
+	 (if (zerop *pause*)
+	     (update-ball *ball* *player*))
 	 (display-player *player*)
 	 (display-ball *ball*)
+	 (if (= *get-ready* 1)
+	     (display-get-ready))
 	 (display-ui))
 
 	((= *game-state* 2)
@@ -507,7 +549,10 @@
 
 (defun reset-level ()
   (reset-player)
-  (reset-ball *ball*))
+  (reset-ball *ball*)
+  (setf *get-ready-count* 0)
+  (setf *get-ready* 1)
+  (setf *pause* 1))
 
 
 ;;;; LOAD-NEW-LEVEL function
@@ -523,7 +568,11 @@
 
 (defun reset-game ()
   (setf *player-score* 0)
+  (setf *player-lives* 3)
   (setf *level-number* 1)
+  (setf *get-ready-count* 0)
+  (setf *get-ready* 1)
+  (setf *pause* 1)
   (load-new-level))
   
 
@@ -550,13 +599,15 @@
 ;;;; SETUP-AUDIO function
 
 (defun setup-audio ()
-  (setf *soundfx* (make-array 3))
+  (setf *soundfx* (make-array 5))
   (sdl-mixer:init-mixer :mp3)
   (setf *mixer-opened* (sdl-mixer:OPEN-AUDIO :chunksize 1024 :enable-callbacks nil))
   (when *mixer-opened*
     (setf (aref *soundfx* 0) (sdl-mixer:load-sample (sdl:create-path "zap_1.ogg" *audio-root*)))
     (setf (aref *soundfx* 1) (sdl-mixer:load-sample (sdl:create-path "ping_1.ogg" *audio-root*)))
     (setf (aref *soundfx* 2) (sdl-mixer:load-sample (sdl:create-path "wall_bounce_1.ogg" *audio-root*)))
+    (setf (aref *soundfx* 3) (sdl-mixer:load-sample (sdl:create-path "level_complete.ogg" *audio-root*)))
+    (setf (aref *soundfx* 4) (sdl-mixer:load-sample (sdl:create-path "die.ogg" *audio-root*)))
     (sample-finished-action)
     (sdl-mixer:allocate-channels 16)))
 
