@@ -220,13 +220,17 @@
 ;;;; DISPLAY-GET-READY function
 
 (defun display-get-ready ()
-  (if (>= *get-ready-count* 120)
+  (if (>= *get-ready-count* 100)
       (progn (setf *get-ready* 0)
 	     (setf *pause* 0))
       (setf *get-ready-count* (incf *get-ready-count*)))
   
-  (draw-text "GET READY!" 180 300 255 255 255 *ttf-font-huge*))
+  (if (= *get-ready-count* 1)
+      (play-sound 5))
 
+  (if (< *get-ready-count* 60)
+      (draw-text "READY!" 180 300 255 255 255 *ttf-font-huge*)
+      (draw-text "GO!" 200 300 255 255 255 *ttf-font-huge*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;; BALL ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -237,7 +241,7 @@
 			      :x (/ *game-width* 2) :y (- *game-height* 57)
 			      :w 5 :h 5
 			      :r 255 :g 255 :b 255
-			      :dx (- (random 5) 2) :dy -2 :spd 1)))
+			      :dx (- (random 5) 2) :dy -2 :spd 2)))
 
 
 ;;;; RESET-BALL function
@@ -292,8 +296,10 @@
   (if (> (+ (y b) (h b)) (- *game-height* 30))
       (progn (setf *player-lives* (decf *player-lives*))
 	     (if (zerop *player-lives*)
-		 (change-game-state)
-		 (reset-level)))))
+		 (progn (play-sound 6)
+			(change-game-state))
+		 (progn (play-sound 4)
+			(reset-level))))))
 
 
 ;;;; COLLIDE-BRICK function
@@ -449,13 +455,14 @@
 ;;;; MOVE-PLAYER function
 
 (defun move-player (direction)
-  (cond ((eq direction 'left)
-	 (unless (<= (x *player*) 0)
-	   (setf (x *player*) (- (x *player*) (spd *player*)))))
-
-	((eq direction 'right)
-	 (unless (>= (+ (x *player*) (w *player*)) *game-width*)
-	   (setf (x *player*) (+ (x *player*) (spd *player*)))))))
+  (unless (= *pause* 1) 
+    (cond ((eq direction 'left)
+	   (unless (<= (x *player*) 0)
+	     (setf (x *player*) (- (x *player*) (spd *player*)))))
+	  
+	  ((eq direction 'right)
+	   (unless (>= (+ (x *player*) (w *player*)) *game-width*)
+	     (setf (x *player*) (+ (x *player*) (spd *player*))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;; SCREENS ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -553,6 +560,7 @@
   (setf *get-ready-count* 0)
   (setf *get-ready* 1)
   (setf *pause* 1))
+  ;(play-sound 5))
 
 
 ;;;; LOAD-NEW-LEVEL function
@@ -599,7 +607,7 @@
 ;;;; SETUP-AUDIO function
 
 (defun setup-audio ()
-  (setf *soundfx* (make-array 5))
+  (setf *soundfx* (make-array 7))
   (sdl-mixer:init-mixer :mp3)
   (setf *mixer-opened* (sdl-mixer:OPEN-AUDIO :chunksize 1024 :enable-callbacks nil))
   (when *mixer-opened*
@@ -608,6 +616,8 @@
     (setf (aref *soundfx* 2) (sdl-mixer:load-sample (sdl:create-path "wall_bounce_1.ogg" *audio-root*)))
     (setf (aref *soundfx* 3) (sdl-mixer:load-sample (sdl:create-path "level_complete.ogg" *audio-root*)))
     (setf (aref *soundfx* 4) (sdl-mixer:load-sample (sdl:create-path "die.ogg" *audio-root*)))
+    (setf (aref *soundfx* 5) (sdl-mixer:load-sample (sdl:create-path "ready_go_2.ogg" *audio-root*)))
+    (setf (aref *soundfx* 6) (sdl-mixer:load-sample (sdl:create-path "game_over_1.ogg" *audio-root*)))
     (sample-finished-action)
     (sdl-mixer:allocate-channels 16)))
 
