@@ -40,8 +40,8 @@
 (defparameter *soundfx* nil)
 
 ;;;; GFX Params
-(defparameter *gfx-level-1* (merge-pathnames "level_1.jpg" *gfx-root*))
-(defparameter *gfx-level-2* (merge-pathnames "level_2.jpg" *gfx-root*))
+(defparameter *gfx-breakout* (merge-pathnames "intro.png" *gfx-root*))
+(defparameter *gfx-game-over* (merge-pathnames "game_over.jpg" *gfx-root*))
 
 ;;;; Font Params
 (defparameter *terminus-ttf-12* 
@@ -169,7 +169,7 @@
 	 do (loop for x below width
 	       as element = (aref line x)
 		 do (progn (setf (aref *level* y x) element)
-			   (unless (equalp element #\0)
+			   (unless (or (equalp element #\0) (equalp element #\8))
 			     (setf *bricks-in-level* (incf *bricks-in-level*))))))))
 
 
@@ -191,12 +191,21 @@
   (let ((pos-x (* x *tile-width*))
 	(pos-y (* y *tile-height*)))
     (case tile
-      ((#\1) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 200 0 0))
+      ((#\1) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 209 17 65))
 
-      ((#\2) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 0 125 0))
+      ((#\2) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 0 177 89))
       
-      ((#\3) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 0 0 255)))))
+      ((#\3) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 0 174 219))
 
+      ((#\4) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 243 119 53))
+
+      ((#\5) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 255 196 37))
+
+      ((#\6) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 114 0 172))
+      
+      ((#\7) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 99 47 0))
+
+      ((#\8) (draw-box pos-x pos-y (- *tile-width* 2) (- *tile-height* 2) 192 192 192)))))
 
 ;;;; DISPLAY-LEVEL function
 
@@ -211,10 +220,9 @@
 ;;;; DISPLAY-BACKGROUND function
 
 (defun display-background ()
-  (cond ((= *level-number* 1)
-	 (sdl:draw-surface-at-* (sdl:load-image *gfx-level-1*) 0 0))
-	((= *level-number* 2)
-	 (sdl:draw-surface-at-* (sdl:load-image *gfx-level-2*) 0 0))))
+  (sdl:draw-surface-at-* 
+   (sdl:load-image (format nil "~alevel_~a.jpg" *gfx-root* *level-number*)) 0 0))
+
 
 
 ;;;; DISPLAY-GET-READY function
@@ -238,7 +246,7 @@
 
 (defun create-ball ()
   (setf *ball* (make-instance 'ball
-			      :x (/ *game-width* 2) :y (- *game-height* 57)
+			      :x (- (/ *game-width* 2) 3) :y (- *game-height* 57)
 			      :w 5 :h 5
 			      :r 255 :g 255 :b 255
 			      :dx (- (random 5) 2) :dy -2 :spd 2)))
@@ -246,7 +254,7 @@
 
 ;;;; RESET-BALL function
 (defun reset-ball (b)
-  (setf (x b) (/ *game-width* 2))
+  (setf (x b) (- (/ *game-width* 2) 3))
   (setf (y b) (- *game-height* 57))
   (setf (dy b) -2)
   (setf (dx b) (- (random 7) 3)))
@@ -259,7 +267,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;; BALL PHYSICS ;;;;;;;;;;;;;;;;;;;;;;;;
-
+1
 
 ;;;; UPDATE-BALL function
 
@@ -325,17 +333,15 @@
 		(<= (* x w) (x b))
 		(>= (+ (* x w) w) (+ (x b) (w b))))
 	   (progn (setf (dy b) (- (dy b)))
-		  (setf (aref *level* y x) #\0)
-		  (update-score brick)))
-
+		  (update-score brick x y)))
+	  
 	  ; bottom
 	  ((and (>= (+ (* y h) h) (y b))
 		(<= (+ (* y h) h) (+ (y b) (h b)))
 		(<= (* x w) (x b))
 		(>= (+ (* x w) w) (+ (x b) (w b))))
 	   (progn (setf (dy b) (- (dy b)))
-		  (setf (aref *level* y x) #\0)
-		  (update-score brick)))
+		  (update-score brick x y)))
 
 	  ; left
 	  ((and (<= (* y h) (y b))
@@ -343,8 +349,7 @@
 		(>= (* x w) (x b))
 		(<= (* x w) (+ (x b) (w b))))
 	   (progn (setf (dx b) (- (dx b)))
-		  (setf (aref *level* y x) #\0)
-		  (update-score brick)))
+		  (update-score brick x y)))
 
 	  ; right
 	  ((and	(<= (* y h) (y b))
@@ -352,8 +357,7 @@
 		(>= (+ (* x w) w) (x b))
 		(<= (+ (* x w) w) (+ (x b) (w b))))
 	   (progn (setf (dx b) (- (dx b)))
-		  (setf (aref *level* y x) #\0)
-		  (update-score brick))))))
+		  (update-score brick x y))))))
 
 
 ;;;; HANDLE-PADDLE-COLLISION function
@@ -365,7 +369,7 @@
     (cond ((and (<= (x p) b-mid)
 		(>= (+ (x p) pw-div) b-mid)
 		(<= (y p) (+ (y b) (h b)))
-		(> (y p) (- (y b) (h b))))
+		(>= (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (if (sdl:get-key-state :sdl-key-left)
 		      (setf (dx b) -3)
@@ -375,7 +379,7 @@
 	  ((and (<= (+ (x p) pw-div) b-mid)
 		(>= (+ (x p) (* pw-div 2)) b-mid)
 		(<= (y p) (+ (y b) (h b)))
-		(> (y p) (- (y b) (h b))))
+		(>= (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (setf (dx b) -1)
 		  (play-sound 1)))
@@ -383,7 +387,7 @@
 	  ((and (<= (+ (x p) (* pw-div 2)) b-mid)
 		(>= (+ (x p) (* pw-div 3)) b-mid)
 		(<= (y p) (+ (y b) (h b)))
-		(> (y p) (- (y b) (h b))))
+		(>= (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (setf (dx b) 1)
 		  (play-sound 1)))
@@ -391,7 +395,7 @@
 	  ((and (<= (+ (x p) (* pw-div 3)) b-mid)
 		(>= (+ (x p) (w p)) b-mid)
 		(<= (y p) (+ (y b) (h b)))
-		(> (y p) (- (y b) (h b))))
+		(>= (y p) (- (y b) (h b))))
 	   (progn (setf (dy b) (- (dy b)))
 		  (if (sdl:get-key-state :sdl-key-right)
 		      (setf (dx b) 3)
@@ -406,23 +410,44 @@
 
 ;;;; UPDATE-SCORE function
 
-(defun update-score (brick)
-  (setf *bricks-in-level* (decf *bricks-in-level*))
+(defun update-score (brick x y)
+
+  (unless (equalp brick #\8)
+    (progn (setf (aref *level* y x) #\0)
+	   (setf *bricks-in-level* (decf *bricks-in-level*))))
 
   (cond ((equalp brick #\1)
 	 (progn (play-sound 0)
-		(setf *player-score* (+ *player-score* 10))))
+		(setf *player-score* (+ *player-score* (* 10 *player-lives*)))))
 
 	((equalp brick #\2)
 	 (progn (play-sound 0)
-		(setf *player-score* (+ *player-score* 20))))
+		(setf *player-score* (+ *player-score* (* 20 *player-lives*)))))
 
 	((equalp brick #\3)
 	 (progn (play-sound 0)
-		(setf *player-score* (+ *player-score* 30)))))
+		(setf *player-score* (+ *player-score* (* 30 *player-lives*)))))
+
+	((equalp brick #\4)
+	 (progn (play-sound 0)
+		(setf *player-score* (+ *player-score* (* 40 *level-number*)))))
+
+	((equalp brick #\5)
+	 (progn (play-sound 0)
+		(setf *player-score* (+ *player-score* (* 50 *player-lives*)))))
+
+	((equalp brick #\6)
+	 (progn (play-sound 0)
+		(setf *player-score* (+ *player-score* (* 60 *player-lives*)))))
+
+	((equalp brick #\7)
+	 (progn (play-sound 0)
+		(setf *player-score* (+ *player-score* (* 70 *player-lives*))))))
 
   (if (zerop *bricks-in-level*)
-      (progn (setf *level-number* (incf *level-number*))
+      (progn (setf *player-score* 
+		   (+ *player-score* (* 1000 *player-lives* *level-number*)))
+	     (setf *level-number* (incf *level-number*))
 	     (play-sound 3)
 	     (load-new-level))))
 
@@ -457,11 +482,11 @@
 (defun move-player (direction)
   (unless (= *pause* 1) 
     (cond ((eq direction 'left)
-	   (unless (<= (x *player*) 0)
+	   (unless (<= (x *player*) -5)
 	     (setf (x *player*) (- (x *player*) (spd *player*)))))
 	  
 	  ((eq direction 'right)
-	   (unless (>= (+ (x *player*) (w *player*)) *game-width*)
+	   (unless (>= (+ (x *player*) (w *player*)) (+ *game-width* 5))
 	     (setf (x *player*) (+ (x *player*) (spd *player*))))))))
 
 
@@ -487,21 +512,25 @@
 ;;;; DISPLAY-END-GAME function
 
 (defun display-end-game ()
+  (sdl:draw-surface-at-* (sdl:load-image *gfx-game-over*) 0 0)
+
   (draw-text "BREAKOUT" 180 20 255 255 0 *ttf-font-huge*)
 
   (if (and (zerop *bricks-in-level*) (= *level* 10))
       (draw-text "CONGRATULATIONS!!!  YOU WON!!!" 100 100 255 255 0 *ttf-font-huge*)
       (progn (draw-text "GAME OVER!" 160 130 255 255 255 *ttf-font-huge*)
 	     (draw-text (format nil "YOUR SCORE IS ~a" *player-score*) 
-			     80 250 255 0 0 *ttf-font-huge*)))
-  (draw-text "Press SPACE to Continue..." 140 540 255 255 255))
+			     100 250 255 0 0 *ttf-font-huge*)))
+  (draw-text "Press SPACE to Continue..." 120 560 255 255 255))
 
 
 ;;;; DISPLAY-MENU function
 
 (defun display-menu ()
-  (draw-text "BREAKOUT" 180 20 255 255 0 *ttf-font-huge*)
-  (draw-text "Press SPACE to Start..." 140 540 255 255 255))
+  (sdl:draw-surface-at-* (sdl:load-image *gfx-breakout*) 0 0)
+  ;(sdl:draw-surface-at-* (sdl:load-image *gfx-logo*) 5 50)
+  ;(draw-text "BREAKOUT" 180 20 255 255 0 *ttf-font-huge*)
+  (draw-text "Press SPACE to Start..." 120 560 255 255 255))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;; GAME STATE ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -669,6 +698,8 @@
 		   t)
       (:key-down-event (:key key)
 		       (case key
+			 (:sdl-key-n (progn (setf *level-number* (incf *level-number*))
+					   (load-new-level)))
 			 (:sdl-key-q (if (= *game-state* 1)
 					 (change-game-state)))
 			 (:sdl-key-space (continue-option))
