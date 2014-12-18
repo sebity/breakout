@@ -698,8 +698,6 @@
 		   t)
       (:key-down-event (:key key)
 		       (case key
-			 (:sdl-key-n (progn (setf *level-number* (incf *level-number*))
-					   (load-new-level)))
 			 (:sdl-key-q (if (= *game-state* 1)
 					 (change-game-state)))
 			 (:sdl-key-space (continue-option))
